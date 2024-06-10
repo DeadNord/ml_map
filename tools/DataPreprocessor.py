@@ -1,11 +1,7 @@
-import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, OneHotEncoder, PowerTransformer
-from sklearn.impute import SimpleImputer
-from category_encoders import TargetEncoder
 from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline, FeatureUnion
+from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 from sklearn import set_config
 
@@ -53,10 +49,8 @@ class DataPreprocessor:
         """
         self.df = df
         self.pipeline = None
-        self.numeric_features = df.select_dtypes(include=[np.number]).columns.tolist()
-        self.categorical_features = df.select_dtypes(
-            include=[object, "category"]
-        ).columns.tolist()
+        self.numeric_features = None
+        self.categorical_features = None
 
     def split_data(self, target_column, test_size=0.2, random_state=None):
         """
@@ -87,6 +81,13 @@ class DataPreprocessor:
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=random_state
         )
+
+        # Update numeric and categorical features based on X
+        self.numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
+        self.categorical_features = X.select_dtypes(
+            include=[object, "category"]
+        ).columns.tolist()
+
         return X_train, X_test, y_train, y_test
 
     def remove_target(self, target_column):
@@ -184,7 +185,7 @@ class DataPreprocessor:
         return self.pipeline
 
 
-# # Example usage:
+# Example usage:
 # if __name__ == "__main__":
 #     # Load your dataset
 #     df = pd.read_csv("path_to_your_dataset.csv")

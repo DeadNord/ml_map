@@ -3,7 +3,7 @@ import numpy as np
 from scipy.stats import zscore
 
 
-class FeatureEngineering:
+class FeatureEngineeringTool:
     """
     A class to perform feature engineering on a dataset.
 
@@ -101,6 +101,9 @@ class FeatureEngineering:
         features : list
             List of feature names to be removed.
         """
+        if len(features) == 0:
+            print(f"No features removed")
+            return
         self.df.drop(columns=features, inplace=True)
         print(f"Removed features: {features}")
 
