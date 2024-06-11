@@ -309,6 +309,44 @@ class EDA:
         plt.tight_layout()
         plt.show()
 
+    def plot_mi_gb_matrix(self, importance_df):
+        """
+        Plots a matrix categorizing features into four blocks based on their Mutual Information (MI) and Gradient Boosting (GB) scores.
+
+        Parameters
+        ----------
+        importance_df : pd.DataFrame
+            DataFrame containing mutual information and feature importance values.
+        """
+        high_mi = importance_df["MutualInfoRank"] > 0.5
+        high_gb = importance_df["FeatureImportanceRank"] > 0.5
+
+        matrix_data = {
+            "High MI & High GB": importance_df[high_mi & high_gb],
+            "High MI & Low GB": importance_df[high_mi & ~high_gb],
+            "Low MI & High GB": importance_df[~high_mi & high_gb],
+            "Low MI & Low GB": importance_df[~high_mi & ~high_gb],
+        }
+
+        fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+
+        for ax, (title, data) in zip(axes.flatten(), matrix_data.items()):
+            sns.barplot(
+                x="FeatureImportanceRank",
+                y="Feature",
+                data=data,
+                ax=ax,
+                palette="viridis",
+            )
+            ax.set_title(title, fontsize=16)
+            ax.set_xlim(0, 1)
+            ax.set_xlabel("Feature Importance Rank", fontsize=14)
+            ax.set_ylabel("Feature", fontsize=14)
+            ax.tick_params(axis="both", which="major", labelsize=16)
+
+        plt.tight_layout()
+        plt.show()
+
     def perform_full_eda(self):
         """
         Performs full EDA by calling all the methods.
