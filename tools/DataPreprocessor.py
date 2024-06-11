@@ -52,9 +52,9 @@ class DataPreprocessor:
         self.numeric_features = None
         self.categorical_features = None
 
-    def split_data(self, target_column, test_size=0.2, random_state=None):
+    def split_data(self, target_column, test_size=0.2, random_state=None, split=True):
         """
-        Splits the dataset into train and test sets.
+        Splits the dataset into train and test sets, or only into features and target.
 
         Parameters
         ----------
@@ -64,31 +64,50 @@ class DataPreprocessor:
             The proportion of the dataset to include in the test split (default is 0.2).
         random_state : int, optional
             The random state for reproducibility (default is None).
+        split : bool, optional
+            Whether to split into train/test sets (default is True).
 
         Returns
         -------
-        X_train : pd.DataFrame
-            Training data without the target column.
-        X_test : pd.DataFrame
-            Testing data without the target column.
-        y_train : pd.Series
-            Target values for the training data.
-        y_test : pd.Series
-            Target values for the testing data.
+        If split is True:
+            X_train : pd.DataFrame
+                Training data without the target column.
+            X_test : pd.DataFrame
+                Testing data without the target column.
+            y_train : pd.Series
+                Target values for the training data.
+            y_test : pd.Series
+                Target values for the testing data.
+        If split is False:
+            X : pd.DataFrame
+                Data without the target column.
+            y : pd.Series
+                Target values.
         """
         X = self.df.drop(columns=[target_column])
         y = self.df[target_column]
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
-        )
 
-        # Update numeric and categorical features based on X
-        self.numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
-        self.categorical_features = X.select_dtypes(
-            include=[object, "category"]
-        ).columns.tolist()
-
-        return X_train, X_test, y_train, y_test
+        if split:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=test_size, random_state=random_state
+            )
+            # Update numeric and categorical features based on X_train
+            self.numeric_features = X_train.select_dtypes(
+                include=[np.number]
+            ).columns.tolist()
+            self.categorical_features = X_train.select_dtypes(
+                include=[object, "category"]
+            ).columns.tolist()
+            return X_train, X_test, y_train, y_test
+        else:
+            # Update numeric and categorical features based on X
+            self.numeric_features = X.select_dtypes(
+                include=[np.number]
+            ).columns.tolist()
+            self.categorical_features = X.select_dtypes(
+                include=[object, "category"]
+            ).columns.tolist()
+            return X, y
 
     def remove_target(self, target_column):
         """
