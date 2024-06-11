@@ -176,7 +176,7 @@ class EDA:
                         plt.ylabel(col_j)
                         plt.show()
 
-    def calculate_mutual_information(self, target, plot=False):
+    def calculate_mutual_information(self, target, discrete_features, plot=False):
         """
         Calculates mutual information between all features and the specified target column. Optionally plots the results.
 
@@ -184,17 +184,32 @@ class EDA:
         ----------
         target : str
             The target column to calculate mutual information against.
+        discrete_features : list
+            List of features to be considered as discrete.
         plot : bool, optional
             Whether to plot the mutual information scores (default is False).
         """
         if target not in self.df.columns:
             raise ValueError(f"Target column '{target}' not found in DataFrame.")
 
-        numeric_columns = self.df.select_dtypes(include=["int64", "float64"]).columns
-        features = self.df[numeric_columns].drop(columns=[target], errors="ignore")
+        features = self.df.drop(columns=[target], errors="ignore")
         target_values = self.df[target]
 
-        mi = mutual_info_regression(features, target_values)
+        # Convert categorical features to numerical
+        for col in features.columns:
+            if features[col].dtype == "object" or col in discrete_features:
+                features[col], _ = features[col].factorize()
+
+        # Calculate mutual information
+        mi = mutual_info_regression(
+            features,
+            target_values,
+            discrete_features=[
+                features.columns.get_loc(c)
+                for c in discrete_features
+                if c in features.columns
+            ],
+        )
         mi_series = pd.Series(mi, index=features.columns, name="Mutual Information")
         mi_series = mi_series.sort_values(ascending=True)
 
@@ -284,7 +299,7 @@ class EDA:
             y="Feature",
             hue="variable",
             kind="bar",
-            height=8,
+            height=6,
             aspect=1.5,
         )
 
