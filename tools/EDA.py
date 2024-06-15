@@ -4,6 +4,8 @@ from sklearn.feature_selection import mutual_info_regression
 import numpy as np
 import seaborn as sns
 from IPython.display import display
+from yellowbrick.cluster import KElbowVisualizer
+from sklearn.cluster import KMeans
 
 
 class EDA:
@@ -46,6 +48,9 @@ class EDA:
 
     perform_full_eda():
         Performs full EDA by calling all the methods.
+
+    determine_optimal_clusters(features, k_range=(1, 10)):
+        Determines the optimal number of clusters using the Elbow method.
     """
 
     def __init__(self, df):
@@ -346,6 +351,24 @@ class EDA:
 
         plt.tight_layout()
         plt.show()
+
+    def determine_optimal_clusters(self, df, k_range=(1, 10)):
+        """
+        Determines the optimal number of clusters using the Elbow method.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The dataset to be used for clustering.
+        k_range : tuple, optional
+            The range of cluster numbers to try (default is (1, 10)).
+        """
+        X = df.select_dtypes(include=["int64", "float64"])
+
+        model = KMeans()
+        visualizer = KElbowVisualizer(model, k=k_range)
+        visualizer.fit(X)
+        visualizer.show()
 
     def perform_full_eda(self):
         """

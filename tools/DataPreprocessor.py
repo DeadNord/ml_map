@@ -91,23 +91,23 @@ class DataPreprocessor:
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=test_size, random_state=random_state
             )
-            # Update numeric and categorical features based on X_train
-            self.numeric_features = X_train.select_dtypes(
-                include=[np.number]
-            ).columns.tolist()
-            self.categorical_features = X_train.select_dtypes(
-                include=[object, "category"]
-            ).columns.tolist()
             return X_train, X_test, y_train, y_test
         else:
-            # Update numeric and categorical features based on X
-            self.numeric_features = X.select_dtypes(
-                include=[np.number]
-            ).columns.tolist()
-            self.categorical_features = X.select_dtypes(
-                include=[object, "category"]
-            ).columns.tolist()
             return X, y
+
+    def initialize_features(self, X):
+        """
+        Initializes the numeric and categorical feature lists based on the given DataFrame.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            The DataFrame to analyze for features.
+        """
+        self.numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
+        self.categorical_features = X.select_dtypes(
+            include=[object, "category"]
+        ).columns.tolist()
 
     def remove_target(self, target_column):
         """
@@ -143,9 +143,12 @@ class DataPreprocessor:
         numeric_pipeline = Pipeline(steps=numeric_transformers).set_output(
             transform="pandas"
         )
-        categorical_pipeline = Pipeline(steps=categorical_transformers).set_output(
-            transform="pandas"
-        )
+        if categorical_transformers:
+            categorical_pipeline = Pipeline(steps=categorical_transformers).set_output(
+                transform="pandas"
+            )
+        else:
+            categorical_pipeline = "drop"
 
         preprocessor = ColumnTransformer(
             transformers=[
@@ -162,7 +165,7 @@ class DataPreprocessor:
         else:
             self.pipeline = Pipeline(steps=[("preprocessor", preprocessor)])
 
-    def fit_transform(self, X_train, y_train):
+    def fit_transform(self, X_train, y_train=None):
         """
         Fits and transforms the train set using the pipeline.
 
@@ -170,15 +173,18 @@ class DataPreprocessor:
         ----------
         X_train : pd.DataFrame
             Training data without the target column.
-        y_train : pd.Series
+        y_train : pd.Series, optional
             Target values for the training data.
 
         Returns
         -------
-        np.ndarray
+        pd.DataFrame
             Transformed training data.
         """
-        return self.pipeline.fit_transform(X_train, y_train)
+        if y_train is not None:
+            return self.pipeline.fit_transform(X_train, y_train)
+        else:
+            return self.pipeline.fit_transform(X_train)
 
     def transform(self, X_test):
         """

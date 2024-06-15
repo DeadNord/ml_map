@@ -31,6 +31,9 @@ class FeatureEngineeringTool:
 
     clean_outliers(columns):
         Removes outliers from the specified columns based on z-scores.
+
+    add_count_feature(material_columns, new_feature_name='Count'):
+        Adds a new feature that counts the number of non-zero materials in the specified columns.
     """
 
     def __init__(self, df):
@@ -161,3 +164,19 @@ class FeatureEngineeringTool:
         self.df = self.df[filtered_entries]  # Update the dataframe
         print(f"Removed outliers from columns: {columns}")
         return self.df
+
+    def add_count_feature(self, material_columns, new_feature_name="Count"):
+        """
+        Adds a new feature that counts the number of non-zero materials in the specified columns.
+
+        Parameters
+        ----------
+        material_columns : list
+            List of columns that represent the materials.
+        new_feature_name : str, optional
+            The name of the new feature column (default is 'Count').
+        """
+        self.df[new_feature_name] = self.df[material_columns].astype(bool).sum(axis=1)
+        print(
+            f"Added new feature '{new_feature_name}' with counts of non-zero materials."
+        )
