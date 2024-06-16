@@ -9,6 +9,7 @@ from sklearn.metrics import (
 from sklearn import set_config
 from IPython.display import display
 
+
 class ModelPipeline:
     """
     A class to create and train model pipelines with grid search for hyperparameter tuning.
@@ -207,58 +208,3 @@ class ModelPipeline:
         """
         set_config(display="diagram")
         return self.best_models[model_name]
-
-
-# Example usage:
-# if __name__ == "__main__":
-#     # Load your dataset
-#     df = pd.read_csv("path_to_your_dataset.csv")
-
-#     # Assume the data is already preprocessed
-#     X_train, X_test, y_train, y_test = train_test_split(
-#         df.drop(columns=["target"]), df["target"], test_size=0.2, random_state=42
-#     )
-
-#     # Define pipelines for different models
-#     pipelines = {
-#         "RandomForest": Pipeline(
-#             [
-#                 ("regressor", RandomForestRegressor(random_state=42)),
-#             ]
-#         ),
-#         "GradientBoosting": Pipeline(
-#             [
-#                 ("regressor", GradientBoostingRegressor(random_state=42)),
-#             ]
-#         ),
-#     }
-
-#     # Define hyperparameters for different models
-#     param_grids = {
-#         "RandomForest": {
-#             "regressor__n_estimators": [50, 100],
-#             "regressor__max_features": ["sqrt", "log2"],
-#             "regressor__max_depth": [10, 20, None],
-#         },
-#         "GradientBoosting": {
-#             "regressor__n_estimators": [50, 100],
-#             "regressor__learning_rate": [0.01, 0.1, 0.2],
-#             "regressor__max_depth": [3, 5, 7],
-#         },
-#     }
-
-#     # Initialize and train model pipeline
-#     model_pipeline = ModelPipeline()
-#     model_pipeline.train(X_train, y_train, pipelines, param_grids)
-
-#     # Display results on validation set
-#     model_pipeline.display_results(X_test, y_test)
-
-#     # Validate on test set
-#     model_pipeline.validate_on_test(X_test, y_test)
-
-#     # Visualize pipeline for RandomForest
-#     model_pipeline.visualize_pipeline("RandomForest")
-
-#     # Visualize pipeline for GradientBoosting
-#     model_pipeline.visualize_pipeline("GradientBoosting")

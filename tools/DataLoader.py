@@ -79,16 +79,3 @@ class DataLoader:
         else:
             # Raise an error if the request type is invalid
             raise ValueError("Invalid request type. Please use 'local' or 'url'.")
-
-
-# # Example usage
-# if __name__ == "__main__":
-#     # Load a local CSV file
-#     csv_loader = DataLoader(request_type="local", path="path_to_your_dataset.csv")
-#     df_csv = csv_loader.load_data()
-#     print(df_csv.head())
-
-#     # Load a local PKL file
-#     pkl_loader = DataLoader(request_type="local", path="path_to_your_dataset.pkl")
-#     df_pkl = pkl_loader.load_data()
-#     print(df_pkl.head())
