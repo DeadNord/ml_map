@@ -358,17 +358,26 @@ class EDA:
 
         Parameters
         ----------
-        df : pd.DataFrame
-            The dataset to be used for clustering.
+        df : pd.DataFrame or np.ndarray
+            The dataset to be analyzed.
         k_range : tuple, optional
             The range of cluster numbers to try (default is (1, 10)).
         """
+        if not isinstance(df, pd.DataFrame):
+            if isinstance(df, np.ndarray):
+                df = pd.DataFrame(df)
+            else:
+                raise ValueError(
+                    "Input data must be a pandas DataFrame or numpy ndarray."
+                )
+
         X = df.select_dtypes(include=["int64", "float64"])
 
         model = KMeans()
         visualizer = KElbowVisualizer(model, k=k_range)
         visualizer.fit(X)
         visualizer.show()
+        return visualizer.elbow_value_
 
     def perform_full_eda(self):
         """
