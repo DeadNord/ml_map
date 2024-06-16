@@ -110,6 +110,15 @@ class ModelPipeline:
         davies_bouldin_scores = []
         calinski_harabasz_scores = []
 
+        # Extract unique parameters
+        param_keys = set()
+        for params in self.best_params.values():
+            param_keys.update(params.keys())
+
+        # Prepare the data for parameters table
+        param_data = {key: [] for key in param_keys}
+        param_data["Model"] = []
+
         for model_name in self.best_models.keys():
             best_model = self.best_models[model_name]
             cluster_labels = best_model.predict(X_train)
@@ -122,21 +131,31 @@ class ModelPipeline:
             davies_bouldin_scores.append(davies_bouldin)
             calinski_harabasz_scores.append(calinski_harabasz)
 
+            # Add model name and parameters to the param_data
+            param_data["Model"].append(model_name)
+            for key in param_keys:
+                param_data[key].append(self.best_params[model_name].get(key, None))
+
         results_df = pd.DataFrame(
             {
                 "Model": list(self.best_models.keys()),
                 "Silhouette Score": silhouette_scores,
                 "Davies-Bouldin Index": davies_bouldin_scores,
                 "Calinski-Harabasz Index": calinski_harabasz_scores,
-                "Best Parameters": [
-                    self.best_params[model_name]
-                    for model_name in self.best_models.keys()
-                ],
             }
         )
 
+        # Create DataFrame for parameters and ensure "Model" is the first column
+        param_df = pd.DataFrame(param_data)
+        param_df = param_df[
+            ["Model"] + [col for col in param_df.columns if col != "Model"]
+        ]
+
         print("Evaluation Metrics for Best Models:")
         display(results_df)
+
+        print("\nBest Parameters for Each Model:")
+        display(param_df)
 
         if help_text:
             print("\nMetric Explanations:")
