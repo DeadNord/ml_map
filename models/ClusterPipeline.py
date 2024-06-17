@@ -1,9 +1,17 @@
-from sklearn.model_selection import GridSearchCV
+from itertools import product
+from matplotlib import pyplot as plt
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import silhouette_score
 from sklearn import set_config
 import pandas as pd
 from IPython.display import display
-from sklearn.metrics import make_scorer, davies_bouldin_score, calinski_harabasz_score
+from sklearn.metrics import (
+    silhouette_score,
+    davies_bouldin_score,
+    calinski_harabasz_score,
+)
+from sklearn.base import clone
 
 
 class ModelPipeline:
@@ -42,30 +50,37 @@ class ModelPipeline:
         self.best_scores = {}
         self.best_model_name = None
 
-    def train(self, X_train, pipelines, param_grids, scoring="silhouette_score", cv=5):
-        if scoring == "silhouette_score":
-            scoring = make_scorer(silhouette_score)
-        elif scoring == "davies_bouldin_score":
-            scoring = make_scorer(davies_bouldin_score, greater_is_better=False)
-        elif scoring == "calinski_harabasz_score":
-            scoring = make_scorer(calinski_harabasz_score)
-        else:
-            raise ValueError(f"Unsupported scoring method: {scoring}")
-
+    def train(self, X_train, pipelines, param_grids, scoring="silhouette_score"):
         for model_name, pipeline in pipelines.items():
-            grid_search = GridSearchCV(
-                pipeline, param_grids[model_name], cv=cv, scoring=scoring
-            )
-            grid_search.fit(X_train)
-            self.best_models[model_name] = grid_search.best_estimator_
-            self.best_params[model_name] = grid_search.best_params_
-            self.best_scores[model_name] = grid_search.best_score_
+            param_grid = param_grids[model_name]
+            self.best_scores[model_name] = float("-inf")
 
-            if (
-                self.best_model_name is None
-                or self.best_scores[model_name] > self.best_scores[self.best_model_name]
-            ):
-                self.best_model_name = model_name
+            param_combinations = list(product(*param_grid.values()))
+
+            for params in param_combinations:
+                param_dict = {
+                    param_name: param_value
+                    for param_name, param_value in zip(param_grid.keys(), params)
+                }
+                model = clone(pipeline)
+                model.set_params(**param_dict)
+                model.fit(X_train)
+                cluster_labels = model.predict(X_train)
+
+                if scoring == "silhouette_score":
+                    score = silhouette_score(X_train, cluster_labels)
+                elif scoring == "davies_bouldin_score":
+                    score = -davies_bouldin_score(X_train, cluster_labels)
+                elif scoring == "calinski_harabasz_score":
+                    score = calinski_harabasz_score(X_train, cluster_labels)
+                else:
+                    raise ValueError(f"Unsupported scoring method: {scoring}")
+
+                if score > self.best_scores[model_name]:
+                    self.best_scores[model_name] = score
+                    self.best_models[model_name] = model
+                    self.best_params[model_name] = param_dict
+                    self.best_model_name = model_name
 
     def display_results(self, X_train, help_text=False):
         """
@@ -175,11 +190,51 @@ class ModelPipeline:
         pd.DataFrame
             A DataFrame containing median values for each feature and the count of objects in each cluster.
         """
-        best_kmeans = self.best_models["KMeans"]
+        best_kmeans = self.best_models[self.best_model_name]
         df_original["Cluster"] = best_kmeans.predict(df_transformed)
 
-        # Calculate medians and counts for each cluster
+        # Calculate medians for each cluster
         cluster_report = df_original.groupby("Cluster").median()
-        cluster_report["Count"] = df_original["Cluster"].value_counts()
+
+        # Add count of objects in each cluster
+        cluster_report["ObjectCount"] = df_original["Cluster"].value_counts()
 
         return cluster_report
+
+    def feature_importance(self, X_train, df_original):
+        """
+        Evaluates and visualizes feature importance using Random Forest.
+
+        Parameters
+        ----------
+        X_train : np.ndarray
+            The training data.
+        df_original : pd.DataFrame
+            The original DataFrame to get feature names.
+        """
+        if not isinstance(X_train, np.ndarray):
+            raise ValueError("X_train must be a numpy array")
+        if not isinstance(df_original, pd.DataFrame):
+            raise ValueError("df_original must be a pandas DataFrame")
+
+        feature_names = df_original.columns
+
+        best_kmeans = self.best_models[self.best_model_name]
+        cluster_labels = best_kmeans.predict(X_train)
+
+        forest = RandomForestClassifier(n_estimators=100, random_state=42)
+        forest.fit(X_train, cluster_labels)
+
+        importances = forest.feature_importances_
+        indices = np.argsort(importances)[::-1]
+
+        sorted_importances = importances[indices]
+        sorted_features = feature_names[indices]
+
+        plt.figure(figsize=(10, 6))
+        plt.title("Feature Importance")
+        plt.barh(range(len(indices)), sorted_importances, align="center")
+        plt.yticks(range(len(indices)), sorted_features)
+        plt.xlabel("Relative Importance")
+        plt.gca().invert_yaxis()
+        plt.show()
