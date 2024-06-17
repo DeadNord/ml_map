@@ -352,7 +352,7 @@ class EDA:
         plt.tight_layout()
         plt.show()
 
-    def determine_optimal_clusters(self, df, k_range=(1, 10)):
+    def determine_optimal_clusters(self, df, k_range=(1, 10), model_params=None):
         """
         Determines the optimal number of clusters using the Elbow method.
 
@@ -362,6 +362,8 @@ class EDA:
             The dataset to be analyzed.
         k_range : tuple, optional
             The range of cluster numbers to try (default is (1, 10)).
+        model_params : dict, optional
+            Additional parameters to pass to the KMeans model (default is None).
         """
         if not isinstance(df, pd.DataFrame):
             if isinstance(df, np.ndarray):
@@ -373,7 +375,10 @@ class EDA:
 
         X = df.select_dtypes(include=["int64", "float64"])
 
-        model = KMeans()
+        if model_params is None:
+            model_params = {}
+
+        model = KMeans(**model_params)
         visualizer = KElbowVisualizer(model, k=k_range)
         visualizer.fit(X)
         visualizer.show()

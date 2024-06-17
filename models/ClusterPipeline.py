@@ -3,7 +3,7 @@ from sklearn.metrics import silhouette_score
 from sklearn import set_config
 import pandas as pd
 from IPython.display import display
-from sklearn.metrics import davies_bouldin_score, calinski_harabasz_score
+from sklearn.metrics import make_scorer, davies_bouldin_score, calinski_harabasz_score
 
 
 class ModelPipeline:
@@ -42,58 +42,30 @@ class ModelPipeline:
         self.best_scores = {}
         self.best_model_name = None
 
-    def train(
-        self,
-        X_train,
-        pipelines,
-        param_grids,
-        scoring="silhouette_score",
-        cv=5,
-    ):
-        """
-        Trains the pipelines with grid search.
+    def train(self, X_train, pipelines, param_grids, scoring="silhouette_score", cv=5):
+        if scoring == "silhouette_score":
+            scoring = make_scorer(silhouette_score)
+        elif scoring == "davies_bouldin_score":
+            scoring = make_scorer(davies_bouldin_score, greater_is_better=False)
+        elif scoring == "calinski_harabasz_score":
+            scoring = make_scorer(calinski_harabasz_score)
+        else:
+            raise ValueError(f"Unsupported scoring method: {scoring}")
 
-        Parameters
-        ----------
-        X_train : pd.DataFrame
-            Training data.
-        pipelines : dict
-            Dictionary of model pipelines.
-        param_grids : dict
-            Dictionary of hyperparameter grids for grid search.
-        scoring : str, optional
-            Scoring metric for grid search (default is 'silhouette_score').
-        cv : int, optional
-            Number of cross-validation folds (default is 5).
-        """
         for model_name, pipeline in pipelines.items():
             grid_search = GridSearchCV(
-                pipeline,
-                param_grids[model_name],
-                cv=cv,
-                scoring=(
-                    self._silhouette_scorer
-                    if scoring == "silhouette_score"
-                    else scoring
-                ),
+                pipeline, param_grids[model_name], cv=cv, scoring=scoring
             )
-
             grid_search.fit(X_train)
-
             self.best_models[model_name] = grid_search.best_estimator_
             self.best_params[model_name] = grid_search.best_params_
             self.best_scores[model_name] = grid_search.best_score_
 
-            # Update the best model name based on the score
             if (
                 self.best_model_name is None
                 or self.best_scores[model_name] > self.best_scores[self.best_model_name]
             ):
                 self.best_model_name = model_name
-
-    def _silhouette_scorer(self, estimator, X):
-        cluster_labels = estimator.fit_predict(X)
-        return silhouette_score(X, cluster_labels)
 
     def display_results(self, X_train, help_text=False):
         """
