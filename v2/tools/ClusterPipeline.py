@@ -34,15 +34,38 @@ class ClusterPipeline:
                 }
                 model = clone(pipeline)
                 model.set_params(**param_dict)
-                model.fit(X_train)
-                cluster_labels = model.predict(X_train)
+
+                # Перехват данных после feature_engineering
+                X_train_transformed = model.named_steps[
+                    "feature_engineering"
+                ].fit_transform(X_train)
+                print(
+                    f"Data after feature engineering (model: {model_name}, params: {param_dict}):"
+                )
+                display(X_train_transformed.head())
+
+                # Перехват данных после preprocessing
+                X_train_preprocessed = model.named_steps["preprocessing"].fit_transform(
+                    X_train_transformed
+                )
+                print(
+                    f"Data after preprocessing (model: {model_name}, params: {param_dict}):"
+                )
+                display(X_train_preprocessed.head())
+
+                model.named_steps["model"].fit(X_train_preprocessed)
+                cluster_labels = model.named_steps["model"].predict(
+                    X_train_preprocessed
+                )
 
                 if scoring == "silhouette_score":
-                    score = silhouette_score(X_train, cluster_labels)
+                    score = silhouette_score(X_train_preprocessed, cluster_labels)
                 elif scoring == "davies_bouldin_score":
-                    score = -davies_bouldin_score(X_train, cluster_labels)
+                    score = -davies_bouldin_score(X_train_preprocessed, cluster_labels)
                 elif scoring == "calinski_harabasz_score":
-                    score = calinski_harabasz_score(X_train, cluster_labels)
+                    score = calinski_harabasz_score(
+                        X_train_preprocessed, cluster_labels
+                    )
                 else:
                     raise ValueError(f"Unsupported scoring method: {scoring}")
 
