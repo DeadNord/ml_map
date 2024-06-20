@@ -12,6 +12,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 
 class ULModelEvaluator:
+
     def display_results(
         self,
         X_train,
@@ -20,8 +21,31 @@ class ULModelEvaluator:
         best_params,
         best_scores,
         best_model_name,
+        scoring_method,
         help_text=False,
     ):
+        """
+        Displays evaluation metrics and best parameters for the models.
+
+        Parameters
+        ----------
+        X_train : array-like of shape (n_samples, n_features)
+            Training data.
+        cluster_labels_dict : dict
+            Dictionary containing cluster labels for each model.
+        best_models : dict
+            Dictionary of best models found by grid search.
+        best_params : dict
+            Dictionary of best hyperparameters found by grid search.
+        best_scores : dict
+            Dictionary of best scores achieved by grid search.
+        best_model_name : str
+            Name of the best model based on the evaluation score.
+        scoring_method : str
+            The scoring method used for evaluation.
+        help_text : bool, optional
+            If True, prints explanation of the metrics (default is False).
+        """
 
         results = []
         for model_name, model in best_models.items():
@@ -45,15 +69,22 @@ class ULModelEvaluator:
             pd.DataFrame(best_params).T.reset_index().rename(columns={"index": "Model"})
         )
 
-        print("Evaluation Metrics for Best Models:")
+        # Best model score
+        best_model_score_df = pd.DataFrame(
+            [{"Model": best_model_name, scoring_method: best_scores[best_model_name]}]
+        )
+
+        # Displaying Evaluation Metrics
+        print("Evaluation Metrics (for entire dataset):")
         display(results_df)
 
-        print("\nBest Parameters for Each Model:")
+        # Displaying Best Parameters
+        print("\nBest Parameters for Each Model (found during cross-validation):")
         display(param_df)
 
-        print(
-            f"\nOverall Best Model: {best_model_name}, Score: {best_scores[best_model_name]}"
-        )
+        # Displaying Best Model Score
+        print("\nBest Model Score (based on cross-validation score):")
+        display(best_model_score_df)
 
         if help_text:
             print("\nMetric Explanations:")
@@ -74,11 +105,35 @@ class ULModelEvaluator:
             print("  - Higher values indicate better-defined clusters.")
 
     def visualize_pipeline(self, model_name, best_models):
+        """
+        Visualizes the pipeline of the best model.
 
+        Parameters
+        ----------
+        model_name : str
+            Name of the model to visualize.
+        best_models : dict
+            Dictionary of best models found by grid search.
+        """
         set_config(display="diagram")
         return best_models[model_name]
 
     def generate_cluster_report(self, df_original, cluster_labels):
+        """
+        Generates a report for each cluster.
+
+        Parameters
+        ----------
+        df_original : DataFrame
+            Original DataFrame with features.
+        cluster_labels : array-like of shape (n_samples,)
+            Cluster labels for each sample.
+
+        Returns
+        -------
+        cluster_report : DataFrame
+            DataFrame with median values of features and object counts for each cluster.
+        """
         df_original["Cluster"] = cluster_labels
 
         cluster_report = df_original.groupby("Cluster").median()
@@ -87,7 +142,18 @@ class ULModelEvaluator:
         return cluster_report
 
     def feature_importance(self, X_train, cluster_labels, df_original):
+        """
+        Displays the feature importance for the clustering model.
 
+        Parameters
+        ----------
+        X_train : array-like of shape (n_samples, n_features)
+            Training data.
+        cluster_labels : array-like of shape (n_samples,)
+            Cluster labels for each sample.
+        df_original : DataFrame
+            Original DataFrame with features.
+        """
         feature_names = df_original.columns
 
         forest = RandomForestClassifier(n_estimators=100, random_state=42)
