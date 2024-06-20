@@ -15,33 +15,45 @@ class ULModelEvaluator:
     def display_results(
         self,
         X_train,
-        cluster_labels,
-        best_model,
+        cluster_labels_dict,
+        best_models,
         best_params,
-        best_score,
+        best_scores,
+        best_model_name,
         help_text=False,
     ):
 
-        silhouette = silhouette_score(X_train, cluster_labels)
-        davies_bouldin = davies_bouldin_score(X_train, cluster_labels)
-        calinski_harabasz = calinski_harabasz_score(X_train, cluster_labels)
+        results = []
+        for model_name, model in best_models.items():
+            cluster_labels = cluster_labels_dict[model_name]
+            silhouette = silhouette_score(X_train, cluster_labels)
+            davies_bouldin = davies_bouldin_score(X_train, cluster_labels)
+            calinski_harabasz = calinski_harabasz_score(X_train, cluster_labels)
+            results.append(
+                {
+                    "Model": model_name,
+                    "Silhouette Score": silhouette,
+                    "Davies-Bouldin Index": davies_bouldin,
+                    "Calinski-Harabasz Index": calinski_harabasz,
+                }
+            )
 
-        results_df = pd.DataFrame(
-            {
-                "Model": [best_model.__class__.__name__],
-                "Silhouette Score": [silhouette],
-                "Davies-Bouldin Index": [davies_bouldin],
-                "Calinski-Harabasz Index": [calinski_harabasz],
-            }
+        results_df = pd.DataFrame(results).sort_values(
+            by="Silhouette Score", ascending=False
+        )
+        param_df = (
+            pd.DataFrame(best_params).T.reset_index().rename(columns={"index": "Model"})
         )
 
-        param_df = pd.DataFrame(best_params, index=[0])
-
-        print("Evaluation Metrics for Best Model:")
+        print("Evaluation Metrics for Best Models:")
         display(results_df)
 
-        print("\nBest Parameters for the Model:")
+        print("\nBest Parameters for Each Model:")
         display(param_df)
+
+        print(
+            f"\nOverall Best Model: {best_model_name}, Score: {best_scores[best_model_name]}"
+        )
 
         if help_text:
             print("\nMetric Explanations:")
@@ -61,10 +73,10 @@ class ULModelEvaluator:
             print("  - Range: [0, ∞), higher is better.")
             print("  - Higher values indicate better-defined clusters.")
 
-    def visualize_pipeline(self, best_model):
+    def visualize_pipeline(self, model_name, best_models):
 
         set_config(display="diagram")
-        return best_model
+        return best_models[model_name]
 
     def generate_cluster_report(self, df_original, cluster_labels):
         df_original["Cluster"] = cluster_labels
