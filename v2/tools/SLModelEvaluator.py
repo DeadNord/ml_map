@@ -9,11 +9,16 @@ from sklearn.metrics import (
     f1_score,
     precision_score,
     recall_score,
+    roc_curve,
+    auc,
+    confusion_matrix,
+    classification_report,
 )
 from IPython.display import display
 from sklearn import set_config
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+import seaborn as sns
 
 
 class SLModelEvaluator:
@@ -30,7 +35,29 @@ class SLModelEvaluator:
         Visualizes the pipeline structure for a given model.
     feature_importance(X_train, y_train, df_original):
         Displays the feature importances using a RandomForest model.
+    plot_roc_curve():
+        Plots the ROC curve and displays the AUC score.
+    plot_confusion_matrix():
+        Plots the confusion matrix.
     """
+
+    def __init__(self, model, X_test, y_test):
+        """
+        Инициализация класса SLModelEvaluator.
+
+        Параметры:
+        model: обученная модель
+        X_test: тестовые данные
+        y_test: истинные значения для тестовых данных
+        """
+        self.model = model
+        self.X_test = X_test
+        self.y_test = y_test
+        self.y_pred = model.predict(X_test)
+        if hasattr(model, "predict_proba"):
+            self.y_pred_proba = model.predict_proba(X_test)[:, 1]
+        else:
+            self.y_pred_proba = None
 
     def display_results(
         self,
