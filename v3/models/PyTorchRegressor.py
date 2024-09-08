@@ -19,7 +19,7 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         dropout_rate=0.5,
     ):
         """
-        PyTorch регрессор с возможностью задавать архитектуру сети.
+        PyTorch regressor with customizable network architecture.
         """
         self.input_size = input_size
         self.hidden_sizes = hidden_sizes
@@ -43,20 +43,28 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
 
     def _initialize_model(self):
         """
-        Инициализация модели с последовательными слоями и явной инициализацией весов.
+        Initializes the model with sequential layers and explicit weight initialization.
         """
         layers = []
         input_dim = self.input_size
 
-        for hidden_size in self.hidden_sizes:
+        # Создаем слои, чередуя ReLU и Tanh
+        for i, hidden_size in enumerate(self.hidden_sizes):
             layer = nn.Linear(input_dim, hidden_size)
             nn.init.kaiming_normal_(layer.weight)
             nn.init.constant_(layer.bias, 0)
             layers.append(layer)
-            layers.append(nn.ReLU())
+
+            # Чередование ReLU и Tanh
+            if i % 2 == 0:
+                layers.append(nn.ReLU())
+            else:
+                layers.append(nn.Tanh())
+
             layers.append(nn.Dropout(p=self.dropout_rate))
             input_dim = hidden_size
 
+        # Выходной слой
         output_layer = nn.Linear(input_dim, 1)
         nn.init.kaiming_normal_(output_layer.weight)
         nn.init.constant_(output_layer.bias, 0)
@@ -65,6 +73,7 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         self.model = nn.Sequential(*layers)
         self.model.to(self.device)
 
+        # Настройка оптимизатора
         if self.optimizer_type == "adam":
             self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         elif self.optimizer_type == "sgd":
@@ -72,6 +81,7 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         else:
             raise ValueError(f"Unsupported optimizer type: {self.optimizer_type}")
 
+        # Настройка функции потерь
         if self.criterion_type == "mse":
             self.criterion = nn.MSELoss()
         elif self.criterion_type == "mae":
@@ -79,27 +89,32 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         else:
             raise ValueError(f"Unsupported criterion type: {self.criterion_type}")
 
-    def fit(self, X_train, y_train, X_val, y_val):
+    def fit(self, X_train, y_train, X_val=None, y_val=None):
         """
-        Обучает модель на данных.
-        """
-        if isinstance(X_train, pd.DataFrame):
-            X_train = X_train.to_numpy()
-        if isinstance(y_train, pd.Series):
-            y_train = y_train.to_numpy()
-        if isinstance(X_val, pd.DataFrame):
-            X_val = X_val.to_numpy()
-        if isinstance(y_val, pd.Series):
-            y_val = y_val.to_numpy()
+        Trains the model on the data. Validation data is optional.
 
-        X_train_tensor = torch.tensor(X_train, dtype=torch.float32).to(self.device)
+        Parameters
+        ----------
+        X_train : np.ndarray or pd.DataFrame
+            Training data.
+        y_train : np.ndarray or pd.Series
+            Target values for the training data.
+        X_val : np.ndarray or pd.DataFrame, optional
+            Validation data. If not provided, training proceeds without validation.
+        y_val : np.ndarray or pd.Series, optional
+            Target values for the validation data. If not provided, training proceeds without validation.
+        """
+
+        X_train_tensor = torch.FloatTensor(X_train).to(self.device)
         y_train_tensor = (
-            torch.tensor(y_train, dtype=torch.float32).view(-1, 1).to(self.device)
+            torch.FloatTensor(y_train.values).reshape(-1, 1).to(self.device)
         )
-        X_val_tensor = torch.tensor(X_val, dtype=torch.float32).to(self.device)
-        y_val_tensor = (
-            torch.tensor(y_val, dtype=torch.float32).view(-1, 1).to(self.device)
-        )
+
+        if X_val is not None and y_val is not None:
+            X_val_tensor = torch.FloatTensor(X_val).to(self.device)
+            y_val_tensor = (
+                torch.FloatTensor(y_val.values).reshape(-1, 1).to(self.device)
+            )
 
         train_dataset = torch.utils.data.TensorDataset(X_train_tensor, y_train_tensor)
         train_loader = torch.utils.data.DataLoader(
@@ -116,48 +131,49 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
                 outputs = self.model(inputs)
 
                 if torch.isnan(outputs).any():
-                    print(f"NaN в предсказаниях на эпохе {epoch}")
+                    print(f"NaN in predictions during epoch {epoch}")
 
                 loss = self.criterion(outputs, targets)
 
                 if torch.isnan(loss).any():
-                    print(f"NaN в потере на эпохе {epoch}")
+                    print(f"NaN in loss during epoch {epoch}")
 
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-
                 self.optimizer.step()
                 running_train_loss += loss.item()
 
-            self.model.eval()
-            with torch.no_grad():
-                val_outputs = self.model(X_val_tensor)
-                val_loss = self.criterion(val_outputs, y_val_tensor).item()
-
-                if torch.isnan(val_outputs).any():
-                    print(f"NaN в валидационных предсказаниях на эпохе {epoch}")
-
+            # Calculate and save training loss
             train_loss = running_train_loss / len(train_loader)
             self.train_loss_history.append(train_loss)
-            self.val_loss_history.append(val_loss)
 
-            # if epoch % 10 == 0:
-            #     print(
-            #         f"Epoch {epoch+1}/{self.epochs}, Training Loss: {train_loss}, Validation Loss: {val_loss}"
-            #     )
+            # If validation data is provided, calculate validation loss
+            if X_val is not None and y_val is not None:
+                self.model.eval()
+                with torch.no_grad():
+                    val_outputs = self.model(X_val_tensor)
+                    val_loss = self.criterion(val_outputs, y_val_tensor).item()
 
-            self.model.train()
+                    if torch.isnan(val_outputs).any():
+                        print(f"NaN in validation predictions during epoch {epoch}")
+
+                    self.val_loss_history.append(val_loss)
+
+                if epoch % 10 == 0:
+                    print(
+                        f"Epoch {epoch+1}/{self.epochs}, Training Loss: {train_loss}, Validation Loss: {val_loss}"
+                    )
+                self.model.train()
+            else:
+                print(f"Epoch {epoch+1}/{self.epochs}, Training Loss: {train_loss}")
 
     def predict(self, X):
         """
-        Прогнозирование на новых данных.
+        Predicts on new data.
         """
-        if isinstance(X, pd.DataFrame):
-            X = X.to_numpy()
-
         self.model.eval()
         with torch.no_grad():
-            X_tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
+            X_tensor = torch.FloatTensor(X).to(self.device)
             predictions = self.model(X_tensor).cpu().numpy()
 
         return predictions

@@ -1,25 +1,18 @@
 from sklearn.model_selection import GridSearchCV
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import (
-    confusion_matrix,
-    ConfusionMatrixDisplay,
-    mean_absolute_error,
-    mean_absolute_percentage_error,
-    r2_score,
-    accuracy_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_curve,
-    auc,
-    balanced_accuracy_score,
-)
+from tqdm import tqdm
 
 
 class SLModelTrainer:
     """
     A class to train PyTorch models with grid search for hyperparameter tuning.
     Supports both regression and classification tasks.
+
+    Methods
+    -------
+    train(X_train, y_train, X_val=None, y_val=None, pipelines, param_grids, scoring=None, cv=5, verbose=0, n_jobs=-1)
+        Trains the PyTorch model with grid search for hyperparameters.
+    help()
+        Provides information on how to use the SLModelTrainer class.
     """
 
     def __init__(self, task_type, device="cpu"):
@@ -49,10 +42,10 @@ class SLModelTrainer:
         self,
         X_train,
         y_train,
-        X_val,
-        y_val,
         pipelines,
         param_grids,
+        X_val=None,
+        y_val=None,
         scoring=None,
         cv=5,
         verbose=0,
@@ -68,10 +61,10 @@ class SLModelTrainer:
             Training data.
         y_train : pd.Series
             Target values for the training data.
-        X_val : pd.DataFrame
-            Validation data.
-        y_val : pd.Series
-            Target values for the validation data.
+        X_val : pd.DataFrame, optional
+            Validation data. Default is None.
+        y_val : pd.Series, optional
+            Target values for the validation data. Default is None.
         pipelines : dict
             Dictionary of model pipelines.
         param_grids : dict
@@ -84,16 +77,17 @@ class SLModelTrainer:
             Verbosity level (default is 0).
         n_jobs : int, optional
             Number of jobs to run in parallel (default is -1).
+        error_score : str, optional
+            How to handle errors during fitting. Default is 'raise'.
         """
         if scoring is None:
-            if self.task_type == "classification":
-                scoring = "accuracy"
-            else:
-                scoring = "r2"
+            scoring = "accuracy" if self.task_type == "classification" else "r2"
 
         print(f"Task type: {self.task_type.capitalize()}")
         print(f"Using scoring metric: {scoring}")
         print(f"Training on device: {self.device}")
+
+        total_fits = 0
 
         for model_name, pipeline in pipelines.items():
             pipeline.set_params(regressor__device=self.device)
@@ -105,14 +99,29 @@ class SLModelTrainer:
                 scoring=scoring,
                 verbose=verbose,
                 n_jobs=n_jobs,
+                error_score=error_score,
             )
-            grid_search.fit(
-                X_train, y_train, regressor__X_val=X_val, regressor__y_val=y_val
-            )
+
+            # Calculate the total number of fits
+            total_fits = len(param_grids[model_name]) * cv
+
+            # tqdm progress bar
+            with tqdm(total=total_fits, desc=f"Fitting {model_name}") as pbar:
+                # Callback function to update the progress bar
+                def progress_bar_callback(*args, **kwargs):
+                    pbar.update(1)
+
+                grid_search.fit(
+                    X_train,
+                    y_train,
+                    regressor__X_val=X_val,
+                    regressor__y_val=y_val,
+                    callbacks=[progress_bar_callback],  # Enabling the callback
+                )
 
             self.best_estimators[model_name] = grid_search.best_estimator_
             self.best_params[model_name] = grid_search.best_params_
-            self.best_scores[model_name] = grid_search.best_score_
+            self.best_scores[model_name] = -grid_search.best_score_
 
             if self.best_scores[model_name] > self.best_model_score:
                 self.best_model_name = model_name
@@ -120,22 +129,35 @@ class SLModelTrainer:
 
     def help(self):
         """
-        Prints help information about available metrics for classification and regression.
+        Provides information on how to use the SLModelTrainer class.
         """
-        print("=== PyTorchModelTrainer Help ===")
+        print("=== SLModelTrainer Help ===")
         print("This trainer supports both regression and classification tasks.")
-        print("\nAvailable scoring metrics:")
-        print(
-            "- For classification: accuracy, f1, precision, recall, balanced_accuracy"
-        )
-        print(
-            "- For regression: r2, neg_mean_absolute_error, neg_mean_squared_error, neg_root_mean_squared_error"
-        )
         print("\nUsage:")
-        print("You can specify the scoring parameter when calling the train method.")
         print(
-            "If you don't specify a scoring metric, the default will be 'accuracy' for classification and 'r2' for regression."
+            "1. Initialize the SLModelTrainer with the task type ('regression' or 'classification') and the device ('cpu' or 'cuda')."
         )
+        print("2. Create a pipeline with preprocessing and the PyTorchRegressor.")
+        print("3. Define the parameter grid for hyperparameter search.")
         print(
-            "You can also check available scoring metrics in the sklearn documentation."
+            "4. Call the `train` method with the training data, pipeline, and parameter grid."
         )
+        print("\nParameters:")
+        print("- X_train : Training data (pandas DataFrame).")
+        print("- y_train : Target values for the training data (pandas Series).")
+        print("- X_val : Validation data (optional, pandas DataFrame).")
+        print(
+            "- y_val : Target values for the validation data (optional, pandas Series)."
+        )
+        print("- pipelines : Dictionary of model pipelines.")
+        print("- param_grids : Dictionary of hyperparameter grids for GridSearchCV.")
+        print(
+            "- scoring : Metric for evaluating models (optional, default depends on task type)."
+        )
+        print("- cv : Number of cross-validation folds (default is 5).")
+        print("- n_jobs : Number of jobs to run in parallel (default is -1).")
+        print("\nNote:")
+        print(
+            "- If X_val and y_val are not provided, the model will train without validation."
+        )
+        print("- Make sure to pass compatible pipelines and parameter grids.")

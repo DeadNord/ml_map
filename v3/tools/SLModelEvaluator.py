@@ -1,8 +1,6 @@
 import pandas as pd
 import torch
 from sklearn.metrics import (
-    confusion_matrix,
-    ConfusionMatrixDisplay,
     mean_absolute_error,
     mean_absolute_percentage_error,
     mean_squared_error,
@@ -11,18 +9,10 @@ from sklearn.metrics import (
     f1_score,
     precision_score,
     recall_score,
-    roc_curve,
-    auc,
     balanced_accuracy_score,
 )
 from IPython.display import display
 import matplotlib.pyplot as plt
-from sklearn.ensemble import (
-    RandomForestRegressor,
-    RandomForestClassifier,
-    GradientBoostingRegressor,
-    GradientBoostingClassifier,
-)
 from torchsummary import summary
 
 
@@ -71,9 +61,7 @@ class SLModelEvaluator:
                 pytorch_model.eval()
 
                 with torch.no_grad():
-                    X_tensor = torch.tensor(X_valid.to_numpy(), dtype=torch.float32).to(
-                        device
-                    )
+                    X_tensor = torch.FloatTensor(X_valid).to(device)
                     y_pred = pytorch_model(X_tensor).cpu().numpy().flatten()
 
                 if task_type == "regression":
@@ -164,95 +152,35 @@ class SLModelEvaluator:
                 print("MAPE: Mean Absolute Percentage Error (lower is better).")
                 print("MSE: Mean Squared Error (lower is better).")
 
-    def plot_roc_curve(self, X_test, y_test, model):
-        """
-        Plots the ROC curve for classification tasks.
-
-        Parameters
-        ----------
-        X_test : pd.DataFrame
-            Test data.
-        y_test : pd.Series
-            True labels for the test data.
-        model : nn.Module
-            Trained PyTorch model.
-        """
-        model.eval()
-        with torch.no_grad():
-            X_tensor = torch.tensor(X_test, dtype=torch.float32)
-            y_pred_proba = model(X_tensor).numpy().flatten()
-
-        fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
-        roc_auc = auc(fpr, tpr)
-
-        plt.figure(figsize=(8, 6))
-        plt.plot(
-            fpr,
-            tpr,
-            color="darkorange",
-            lw=2,
-            label=f"ROC curve (area = {roc_auc:.2f})",
-        )
-        plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.05])
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title("Receiver Operating Characteristic")
-        plt.legend(loc="lower right")
-        plt.show()
-
-    def plot_confusion_matrix(self, X_test, y_test, model):
-        """
-        Plots the confusion matrix for classification tasks.
-
-        Parameters
-        ----------
-        X_test : pd.DataFrame
-            Test data.
-        y_test : pd.Series
-            True labels for the test data.
-        model : nn.Module
-            Trained PyTorch model.
-        """
-        model.eval()
-        with torch.no_grad():
-            X_tensor = torch.tensor(X_test, dtype=torch.float32)
-            y_pred = model(X_tensor).numpy().flatten()
-
-        y_pred_classes = (y_pred > 0.5).astype(int)
-        cm = confusion_matrix(y_test, y_pred_classes)
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-        disp.plot(cmap="Blues")
-        plt.show()
-
     def visualize_pipeline(self, model_name, best_models):
         """
-        Визуализирует структуру PyTorch модели внутри пайплайна.
+        Visualizes the structure of a PyTorch model within a pipeline.
 
         Parameters
         ----------
         model_name : str
-            Имя модели для визуализации.
+            The name of the model to visualize.
         best_models : dict
-            Словарь с лучшими моделями, найденными с помощью поиска по сетке.
+            A dictionary containing the best models found through grid search.
         """
         pipeline = best_models.get(model_name)
         if pipeline is None:
-            raise ValueError(f"Модель с именем {model_name} не найдена в best_models.")
+            raise ValueError(f"Model with name {model_name} not found in best_models.")
 
         pytorch_regressor = pipeline.named_steps.get("regressor")
         if pytorch_regressor is None:
-            raise ValueError(f"В пайплайне модели {model_name} не найден регрессор.")
+            raise ValueError(
+                f"Regressor not found in the pipeline of model {model_name}."
+            )
 
         model = pytorch_regressor.model
         if isinstance(model, torch.nn.Module):
-            print(f"Визуализация архитектуры модели: {model_name}")
+            print(f"Visualizing the architecture of the model: {model_name}")
             input_size = pytorch_regressor.input_size
             summary(model, input_size=(1, input_size))
         else:
             raise ValueError(
-                f"Модель {model_name} не является PyTorch nn.Module, а {type(model)}"
+                f"Model {model_name} is not a PyTorch nn.Module, but {type(model)}"
             )
 
     def validate_on_test(self, X_test, y_test, best_models, best_model_name, task_type):
@@ -279,7 +207,7 @@ class SLModelEvaluator:
 
         model.eval()
         with torch.no_grad():
-            X_tensor = torch.tensor(X_test.to_numpy(), dtype=torch.float32).to(device)
+            X_tensor = torch.FloatTensor(X_test).to(device)
             y_pred = model(X_tensor).cpu().numpy().flatten()
 
         if task_type == "classification":
@@ -332,7 +260,11 @@ class SLModelEvaluator:
             pytorch_regressor, "val_loss_history"
         ):
             plt.plot(pytorch_regressor.train_loss_history, label="Training Loss")
-            plt.plot(pytorch_regressor.val_loss_history, label="Validation Loss")
+            plt.plot(
+                pytorch_regressor.val_loss_history,
+                label="Validation Loss",
+                color="orange",
+            )
             plt.title("Training vs Validation Loss per Epoch")
             plt.xlabel("Epochs")
             plt.ylabel("Loss (MSE)")
