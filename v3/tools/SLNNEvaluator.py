@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from torchsummary import summary
 
 
-class SLModelEvaluator:
+class SLNNEvaluator:
     """
     A class to evaluate and display PyTorch model performance results.
 

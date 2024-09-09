@@ -2,7 +2,7 @@ from sklearn.model_selection import GridSearchCV, ParameterGrid
 from tqdm import tqdm
 
 
-class SLModelTrainer:
+class SLNNTrainer:
     """
     A class to train PyTorch models with grid search for hyperparameter tuning.
     Supports both regression and classification tasks.
