@@ -17,6 +17,7 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         optimizer_type="adam",
         criterion_type="mse",
         dropout_rate=0.5,
+        epochs_logger=True,
     ):
         """
         PyTorch regressor with customizable network architecture.
@@ -35,6 +36,7 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         self.criterion = None
         self.train_loss_history = []
         self.val_loss_history = []
+        self.epochs_logger = epochs_logger
 
         if len(hidden_sizes) == 0:
             raise ValueError(
@@ -48,14 +50,14 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         layers = []
         input_dim = self.input_size
 
-        # Создаем слои, чередуя ReLU и Tanh
+        # Create layers alternating between ReLU and Tanh
         for i, hidden_size in enumerate(self.hidden_sizes):
             layer = nn.Linear(input_dim, hidden_size)
             nn.init.kaiming_normal_(layer.weight)
             nn.init.constant_(layer.bias, 0)
             layers.append(layer)
 
-            # Чередование ReLU и Tanh
+            # Alternate ReLU and Tanh
             if i % 2 == 0:
                 layers.append(nn.ReLU())
             else:
@@ -64,7 +66,7 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
             layers.append(nn.Dropout(p=self.dropout_rate))
             input_dim = hidden_size
 
-        # Выходной слой
+        # Output layer
         output_layer = nn.Linear(input_dim, 1)
         nn.init.kaiming_normal_(output_layer.weight)
         nn.init.constant_(output_layer.bias, 0)
@@ -73,7 +75,7 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         self.model = nn.Sequential(*layers)
         self.model.to(self.device)
 
-        # Настройка оптимизатора
+        # Optimizer setup
         if self.optimizer_type == "adam":
             self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         elif self.optimizer_type == "sgd":
@@ -81,7 +83,7 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         else:
             raise ValueError(f"Unsupported optimizer type: {self.optimizer_type}")
 
-        # Настройка функции потерь
+        # Loss function setup
         if self.criterion_type == "mse":
             self.criterion = nn.MSELoss()
         elif self.criterion_type == "mae":
@@ -89,7 +91,7 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         else:
             raise ValueError(f"Unsupported criterion type: {self.criterion_type}")
 
-    def fit(self, X_train, y_train, X_val=None, y_val=None):
+    def fit(self, X_train, y_train, X_val=None, y_val=None, fold_callback=None):
         """
         Trains the model on the data. Validation data is optional.
 
@@ -159,13 +161,16 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
 
                     self.val_loss_history.append(val_loss)
 
-                if epoch % 10 == 0:
+                if self.epochs_logger & ((epoch) % 10 == 0):
                     print(
                         f"Epoch {epoch+1}/{self.epochs}, Training Loss: {train_loss}, Validation Loss: {val_loss}"
                     )
                 self.model.train()
             else:
                 print(f"Epoch {epoch+1}/{self.epochs}, Training Loss: {train_loss}")
+
+        if fold_callback is not None:
+            fold_callback(train_loss, val_loss)
 
     def predict(self, X):
         """
