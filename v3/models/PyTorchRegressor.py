@@ -1,11 +1,13 @@
+import random
+import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import pandas as pd
 
 
 class PyTorchRegressor(BaseEstimator, RegressorMixin):
+
     def __init__(
         self,
         input_size,
@@ -18,6 +20,7 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         criterion_type="mse",
         dropout_rate=0.5,
         epochs_logger=True,
+        random_state=None,
     ):
         """
         PyTorch regressor with customizable network architecture.
@@ -37,11 +40,25 @@ class PyTorchRegressor(BaseEstimator, RegressorMixin):
         self.train_loss_history = []
         self.val_loss_history = []
         self.epochs_logger = epochs_logger
+        self.random_state = random_state
 
         if len(hidden_sizes) == 0:
             raise ValueError(
                 "hidden_sizes must contain at least one hidden layer configuration."
             )
+
+        if random_state is not None:
+            self._set_random_state(random_state)
+
+    def _set_random_state(self, random_state):
+        """
+        Set the random seed for reproducibility across various modules.
+        """
+        np.random.seed(random_state)
+        random.seed(random_state)
+        torch.manual_seed(random_state)
+        if self.device == "cuda":
+            torch.cuda.manual_seed_all(random_state)
 
     def _initialize_model(self):
         """
